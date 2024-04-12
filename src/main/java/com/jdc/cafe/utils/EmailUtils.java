@@ -29,7 +29,7 @@ public class EmailUtils {
 
     private String[] getCCArray(List<String> cclist){
         String[] cc =  new String[cclist.size()];
-        for(int i=0;i<cclist.size();i++){
+        for(int i=0;i<cclist.size();i++)    {
             cc[i] = cclist.get(i);
         }
         return cc;
