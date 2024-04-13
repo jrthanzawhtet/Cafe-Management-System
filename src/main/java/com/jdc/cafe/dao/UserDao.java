@@ -11,13 +11,15 @@ import java.util.List;
 
 public interface UserDao extends JpaRepository<User,Integer> {
 
-    User findByEmail(@Param("email") String email);
+    User findByEmailId(@Param("email") String email);
     List<UserWrapper> getAllUser();
     List<String> getAllAdmin();
 
     @Transactional
     @Modifying
     void updateStatus(@Param("status")String status,@Param("id") Integer id);
+
+    User findByEmail(String email);
 
 
 }
