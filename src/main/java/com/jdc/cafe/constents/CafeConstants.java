@@ -6,5 +6,8 @@ public class CafeConstants {
 
     public static final String INVALID_DATA = "Invalid Data.";
 
-    public static final String UNAUTHORIZED_ACCESS = "unauthorized_access.";
+    public static final String UNAUTHORIZED = "Unauthorized ACCESS.";
+
+    public static final String STORE_LOCATION = "F:\\BackUp\\sfa_original";
+
 }
