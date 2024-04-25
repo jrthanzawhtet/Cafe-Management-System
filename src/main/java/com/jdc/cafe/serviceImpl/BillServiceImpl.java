@@ -11,13 +11,16 @@ import com.jdc.cafe.dao.BillDao;
 import com.jdc.cafe.service.BillService;
 import com.jdc.cafe.utils.CafeUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.pdfbox.io.IOUtils;
 import org.json.JSONArray;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.io.FileOutputStream;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -65,14 +68,32 @@ public class BillServiceImpl implements BillService {
 
                 JSONArray jsonArray = CafeUtils.getJsonArrayFromString((String) requestMap.get("productDetails"));
                 for (int i = 0; i < jsonArray.length(); i++) {
-                    jsonArray.getJSONObject(i);
+                    addRows(table,CafeUtils.getMapFromJson(jsonArray.getString(i)));
                 }
+                document.add(table);
+
+                Paragraph footer = new Paragraph("Total :"+requestMap.get("totalAmount")+"\n"+
+                        "Thank you for visiting.Please again!!", getFont("Footer"));
+                document.add(footer);
+                document.close();
+                return new ResponseEntity<>("{\"uuid\":\"" + fileName+ "\"}", HttpStatus.OK);
             }
             return CafeUtils.getResponseEntity("Required data not found",HttpStatus.BAD_REQUEST);
         }catch (Exception ex){
             ex.printStackTrace();
         }
         return CafeUtils.getResponseEntity(CafeConstants.SOMETHING_WENT_WRONG, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+
+
+
+    private void addRows(PdfPTable table, Map<String, Object> data) {
+        log.info("Inside addRows");
+        table.addCell((String) data.get("name"));
+        table.addCell((String) data.get("category"));
+        table.addCell((String) data.get("quantity"));
+        table.addCell(Double.toString((Double)data.get("price")));
+        table.addCell(Double.toString((Double)data.get("total")));
     }
 
     private void addTableHeader(PdfPTable table) {
@@ -114,7 +135,7 @@ public class BillServiceImpl implements BillService {
         rect.enableBorderSide(2);
         rect.enableBorderSide(4);
         rect.enableBorderSide(8);
-        rect.setBackgroundColor(BaseColor.BLACK);
+        rect.setBorderColor(BaseColor.BLACK);
         rect.setBorderWidth(1);
         document.add(rect);
 
@@ -144,5 +165,47 @@ public class BillServiceImpl implements BillService {
                 requestMap.containsKey("paymentMethod") &&
                 requestMap.containsKey("productDetails") &&
                 requestMap.containsKey("totalAmount");
+    }
+
+    @Override
+    public ResponseEntity<List<Bill>> getBills() {
+        List<Bill> list = new ArrayList<>();
+        if (jwtFilter.isAdmin()){
+            list = billDao.getAllBills();
+        }else {
+            list = billDao.getBillByUserName(jwtFilter.getCurrentUser());
+        }
+        return new ResponseEntity<>(list, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<byte[]> getPdf(Map<String, Object> requestMap) {
+        log.info("Inside getPdf: requestMap: " + requestMap);
+        try {
+            byte[] byteArray = new byte[0];
+            if(!requestMap.containsKey("uuid") && validateRequestMap(requestMap))
+                return new ResponseEntity<>(byteArray, HttpStatus.BAD_REQUEST);
+            String filePath = CafeConstants.STORE_LOCATION + "\\"+ (String) requestMap.get("uuid") + ".pdf";
+            if (CafeUtils.isFileExist(filePath)){
+                byteArray = getByteArray(filePath);
+                return new ResponseEntity<>(byteArray, HttpStatus.OK);
+            }else {
+                requestMap.put("isGenerate",false);
+                generateReport(requestMap);
+                byteArray = getByteArray(filePath);
+                return new ResponseEntity<>(byteArray, HttpStatus.OK);
+            }
+        }catch (Exception ex){
+            ex.printStackTrace();
+        }
+        return null;
+    }
+
+    private byte[] getByteArray(String filePath) throws IOException {
+        File initialFile = new File(filePath);
+        InputStream targetStream = new FileInputStream(initialFile);
+        byte[] byteArray = IOUtils.toByteArray(targetStream);
+        targetStream.close();
+        return byteArray;
     }
 }
